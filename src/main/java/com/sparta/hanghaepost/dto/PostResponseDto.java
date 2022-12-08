@@ -1,18 +1,25 @@
 package com.sparta.hanghaepost.dto;
 
 import com.sparta.hanghaepost.entity.Post;
+import lombok.Getter;
 
+import java.time.LocalDateTime;
+
+@Getter
 public class PostResponseDto {
 
     public String title;
-    public String username;
     public String contents;
-    public String password;
+    public String username;
+    public LocalDateTime createdAt;
+    public LocalDateTime modifiedAt;
 
     public PostResponseDto(Post post) {
         this.title = post.getTitle();
-        this.username = post.getUsername();
         this.contents = post.getContents();
-        this.password = post.getPassword();
+        this.username = post.getUsername();
+        this.createdAt = post.getCreatedAt();
+        this.modifiedAt = post.getModifiedAt();
+
     }
 }
