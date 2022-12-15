@@ -13,6 +13,7 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     List<Post>findAllByUsername(String username);
 
     Optional<Post>  findByIdAndUsername(Long id, String username);
+
 }
 
 

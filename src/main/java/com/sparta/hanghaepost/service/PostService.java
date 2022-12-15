@@ -1,12 +1,12 @@
 package com.sparta.hanghaepost.service;
 
-import com.sparta.hanghaepost.dto.PostRequestDto;
-import com.sparta.hanghaepost.dto.PostResponseDto;
-import com.sparta.hanghaepost.dto.ResponseDto;
+import com.sparta.hanghaepost.dto.*;
+import com.sparta.hanghaepost.entity.Comment;
 import com.sparta.hanghaepost.entity.Post;
 import com.sparta.hanghaepost.entity.User;
 import com.sparta.hanghaepost.entity.UserRoleEnum;
 import com.sparta.hanghaepost.jwtUtil.JwtUtil;
+import com.sparta.hanghaepost.repository.CommentRepository;
 import com.sparta.hanghaepost.repository.PostRepository;
 import com.sparta.hanghaepost.repository.UserRepository;
 import io.jsonwebtoken.Claims;
@@ -25,35 +25,24 @@ public class PostService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final JwtUtil jwtUtil;
+    private final CommentRepository commentRepository;
 
 
     @Transactional
-    public PostResponseDto createPost(PostRequestDto requestDto, HttpServletRequest request) {
-        String token = jwtUtil.resolveToken(request);
-        Claims claims;
+    public PostResponseDto createPost(PostRequestDto requestDto, User user) {
 
-        if (token != null) {
-            if (jwtUtil.validateToken(token)) {
-                claims = jwtUtil.getUserInfoFromToken(token);
-            } else {
-                throw new IllegalArgumentException("Token Error");
-            }
-            User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
-                    () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
-            );
+        System.out.println("PostService.createPost");
+        System.out.println("user.getUsername() = " + user.getUsername());
 
-            Post post = postRepository.saveAndFlush(new Post(requestDto, user.getId(), user.getUsername()));
+            Post post = postRepository.save(new Post(requestDto, user.getId(), user.getUsername()));
 
             return new PostResponseDto(post);
-        } else {
-            return null;
         }
-
-    }
 
 
     @Transactional(readOnly = true)
     public List<PostResponseDto> getPosts() {
+
         List<Post> getPosts = postRepository.findAllByOrderByCreatedAtDesc();
         ArrayList<PostResponseDto> postResponseDtos = new ArrayList<>();
 
@@ -61,10 +50,19 @@ public class PostService {
             throw new NullPointerException("게시물이 없습니다.");
         }
         for (Post post : getPosts) {
+            // 게시글 안에 있는 댓글을 꺼냅니다.
+            List<Comment> comments = post.getComments();
+            // comment를 dto로 변환
+            List<CommentResponseDto> commentResponseDtos = new ArrayList<>();
+            for(Comment comment : comments){
+                commentResponseDtos.add(new CommentResponseDto(comment)); // entity를 dto로 변환 - list에 넣음
+            }
+
             postResponseDtos.add(new PostResponseDto(post));
         }
         return postResponseDtos;
     }
+
 
 
     @Transactional(readOnly = true)
@@ -87,7 +85,6 @@ public class PostService {
             List<PostResponseDto> list = new ArrayList<>();
             List<Post> postList;
 
-
             if (userRoleEnum == userRoleEnum.USER) {
                 postList = postRepository.findAllByUsername(user.getUsername());
             } else {
@@ -95,7 +92,13 @@ public class PostService {
             }
 
             for (Post post : postList) {
-                list.add((new PostResponseDto(post)));
+                List<CommentResponseDto> commentResponseDtos = new ArrayList<>();
+                List<Comment> comments = post.getComments();
+                for(Comment comment : comments){
+                    commentResponseDtos.add(new CommentResponseDto(comment));
+                }
+                PostResponseDto postResponseDto = new PostResponseDto(post, commentResponseDtos);
+                list.add(postResponseDto);
             }
             return list;
         } else {
@@ -104,22 +107,7 @@ public class PostService {
     }
 
     @Transactional
-    public PostResponseDto updatePost(Long id, PostRequestDto requestDto, HttpServletRequest request) {
-        String token = jwtUtil.resolveToken(request);
-        Claims claims;
-
-        // 토큰이 있는 경우에만 관심상품 최저가 업데이트 가능
-        if (token != null) {
-            // Token 검증
-            if (jwtUtil.validateToken(token)) {
-                // 토큰에서 사용자 정보 가져오기
-                claims = jwtUtil.getUserInfoFromToken(token);
-            } else {
-                throw new IllegalArgumentException("Token Error");
-            }
-            User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
-                    () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
-            );
+    public PostResponseDto updatePost(Long id, PostRequestDto requestDto, User user) {
 
             Post post = postRepository.findByIdAndUsername(id, user.getUsername()).orElseThrow(
                     () -> new NullPointerException("게시글이 없습니다.")
@@ -127,39 +115,25 @@ public class PostService {
             post.update(requestDto);
 
             return new PostResponseDto(post);
-        } else {
-            return null;
         }
 
 
-    }
 
 
-    public ResponseDto deletePost(Long id, HttpServletRequest request) {
+    @Transactional
+    public ResponseDto deletePost(Long id, User user) {
 
-        String token = jwtUtil.resolveToken(request);
-        Claims claims;
-
-        // 토큰이 있는 경우에만 관심상품 최저가 업데이트 가능
-        if (token != null) {
-            // Token 검증
-            if (jwtUtil.validateToken(token)) {
-                // 토큰에서 사용자 정보 가져오기
-                claims = jwtUtil.getUserInfoFromToken(token);
-            } else {
-                throw new IllegalArgumentException("Token Error");
-            }
-            User user = userRepository.findByUsername(claims.getSubject()).orElseThrow(
-                    () -> new IllegalArgumentException("사용자가 존재하지 않습니다.")
-            );
             Post post = postRepository.findByIdAndUsername(id, user.getUsername()).orElseThrow(
                     () -> new NullPointerException("게시글이 없습니다.")
             );
             postRepository.deleteById(id);
-            return new ResponseDto("삭제되었습니다.");
+            return new ResponseDto("삭제되었습니다.", 200);
         }
-        return null;
-    }
+
+
+
+
+
 }
 //        }
 //        Post post = postRepository.findById(id).orElseThrow(
